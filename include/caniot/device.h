@@ -156,11 +156,22 @@ struct caniot_device {
 	const struct caniot_drivers_api *driv;
 #endif
 
+#if CONFIG_CANIOT_DEVICE_STARTUP_ATTRIBUTES
+	/* NULL terminated list of attributes to send on startup
+	 * * Attribute 0000 (node ID) cannot be sent on startup
+	 */
+	const uint16_t *startup_attrs;
+
+	/* Cursor to the next attribute to send */
+	const uint16_t *_startup_attrs_cursor;
+#endif
+
 	struct {
 		uint8_t request_telemetry_ep : 4u; /* Bitmask represent what endpoint(s)
 							  to send telemetry for */
 		uint8_t initialized : 1u;		   /* Device is initialized */
 		uint8_t config_dirty : 1u;		   /* Settings have been modified */
+		uint8_t startup_attrs_sent : 1u;   /* Startup attributes have been sent */
 	} flags;
 };
 
@@ -222,19 +233,56 @@ struct caniot_device_api {
 #endif
 };
 
+/**
+ * @brief Log the device identification
+ * 
+ * @param dev 
+ */
 void caniot_print_device_identification(const struct caniot_device *dev);
 
+/**
+ * @brief Mark the device configuration as dirty
+ * 
+ * @param dev 
+ */
 void caniot_device_config_mark_dirty(struct caniot_device *dev);
 
+/**
+ * @brief Clear device system statistics
+ * 
+ * @param dev 
+ * @return int 
+ */
 int caniot_device_system_reset(struct caniot_device *dev);
 
+/**
+ * @brief Handle incoming CANIOT frame
+ * 
+ * @param dev device
+ * @param req Incoming frame
+ * @param resp Response frame
+ * @return int 0 on success, negative error code otherwise
+ */
 int caniot_device_handle_rx_frame(struct caniot_device *dev,
 								  const struct caniot_frame *req,
 								  struct caniot_frame *resp);
 
+/**
+ * @brief Returns the device caniot ID 
+ * @param dev 
+ * @return caniot_did_t 
+ */
 caniot_did_t caniot_device_get_id(struct caniot_device *dev);
 
-uint32_t caniot_device_telemetry_remaining(struct caniot_device *dev);
+/**
+ * @brief Returns the time in milliseconds until the next process function should 
+ * be called.
+ * The device can be put to sleep until this time.
+ * 
+ * @param dev 
+ * @return uint32_t 
+ */
+uint32_t caniot_device_time_until_process(struct caniot_device *dev);
 
 /**
  * @brief Get the mask to receive all frames targeted to devices.
@@ -347,15 +395,43 @@ void caniot_app_deinit(struct caniot_device *dev);
  */
 int caniot_device_process(struct caniot_device *dev);
 
+/**
+ * @brief Return whether the device time has been synced
+ * 
+ * @param dev 
+ * @return true 
+ * @return false 
+ */
 bool caniot_device_time_synced(struct caniot_device *dev);
 
+/**
+ * @brief Request the device to send telemetry for the given endpoint
+ * 
+ * @param dev 
+ * @param ep 
+ */
 void caniot_device_trigger_telemetry_ep(struct caniot_device *dev, caniot_endpoint_t ep);
 
+/**
+ * @brief Request the device to immediately send configured periodic telemetry
+ * 
+ * @param dev 
+ */
 void caniot_device_trigger_periodic_telemetry(struct caniot_device *dev);
 
+/**
+ * @brief Returns whether the device has triggered telemetry for the given endpoint
+ * 
+ * @param dev 
+ */
 bool caniot_device_triggered_telemetry_ep(struct caniot_device *dev,
 										  caniot_endpoint_t ep);
 
+/**
+ * @brief Returns whether the device has triggered telemetry for any endpoint
+ * 
+ * @param dev 
+ */
 bool caniot_device_triggered_telemetry_any(struct caniot_device *dev);
 
 /*____________________________________________________________________________*/
@@ -474,8 +550,10 @@ int caniot_device_verify(struct caniot_device *dev);
 #define CANIOT_ATTR_KEY_DIAG_RESET_COUNT_EXTERNAL CANIOT_ATTR_KEY(3, 0x05, 0) // 0x3050
 #define CANIOT_ATTR_KEY_DIAG_LAST_RUNTIME_UPTIME  CANIOT_ATTR_KEY(3, 0x06, 0) // 0x3060
 #define CANIOT_ATTR_KEY_DIAG_LAST_RUNTIME_UPTIME_TOTAL                                   \
-	CANIOT_ATTR_KEY(3, 0x07, 0)											   // 0x3070
+	CANIOT_ATTR_KEY(3, 0x07, 0)													 // 0x3070
 #define CANIOT_ATTR_KEY_DIAG_LAST_RESET_STREAK_COUNT CANIOT_ATTR_KEY(3, 0x08, 0) // 0x3080
+
+#define CANIOT_ATTR_KEY_DIAG_BOOT_SIGNAL CANIOT_ATTR_KEY(3, 0x10, 0) // 0x3100
 
 enum caniot_device_section {
 	CANIOT_SECTION_DEVICE_IDENTIFICATION = 0,
@@ -495,34 +573,34 @@ struct caniot_device_attribute {
 
 /**
  * @brief Retrieve the section of the attribute
- * 
+ *
  * Example:
  * - caniot_attr_key_get_section(0x3047) gives CANIOT_SECTION_DEVICE_DIAG
- * 
- * @param key 
- * @return uint16_t 
+ *
+ * @param key
+ * @return uint16_t
  */
 enum caniot_device_section caniot_attr_key_get_section(uint16_t key);
 
 /**
  * @brief Retrieve the attribute root
- * 
+ *
  * Example:
  * - caniot_attr_key_get_root(0x3047) gives 0x3040
- * 
- * @param key 
- * @return uint8_t 
+ *
+ * @param key
+ * @return uint8_t
  */
 uint16_t caniot_attr_key_get_root(uint16_t key);
 
 /**
  * @brief Retrieve the attribute part
- * 
+ *
  * Example:
  * - caniot_attr_key_get_part(0x3047) gives 7
- * 
- * @param key 
- * @return uint8_t 
+ *
+ * @param key
+ * @return uint8_t
  */
 uint8_t caniot_attr_key_get_part(uint16_t key);
 

@@ -1061,7 +1061,6 @@ static int handle_req_attribute(struct caniot_device *dev,
 	ASSERT(dev != NULL);
 	ASSERT(req != NULL);
 	ASSERT(resp != NULL);
-	ASSERT(key != NULL);
 
 	int ret;
 	struct attr_ref ref;
@@ -1077,7 +1076,7 @@ static int handle_req_attribute(struct caniot_device *dev,
 	}
 
 	// copy key to output (so that it can be used in error response)
-	*key = attr.key;
+	if (key) *key = attr.key;
 
 	// Resolve attribute location in the system
 	ret = attr_resolve(attr.key, &ref);
@@ -1111,7 +1110,6 @@ static int handle_req_attribute(struct caniot_device *dev,
 
 	// Read back attribute value
 	if (ret == 0) {
-		
 		// clear value
 		attr.val = 0u;
 
@@ -1223,13 +1221,15 @@ bool caniot_device_time_synced(struct caniot_device *dev)
 /*____________________________________________________________________________*/
 
 #if CONFIG_CANIOT_DEVICE_DRIVERS_API
-uint32_t caniot_device_telemetry_remaining(struct caniot_device *dev)
+uint32_t caniot_device_time_until_process(struct caniot_device *dev)
 {
 	ASSERT(dev != NULL);
 
 	uint32_t remaining;
 
-	if (prepare_config_read(dev) != 0) {
+	if (CONFIG_CANIOT_DEVICE_STARTUP_ATTRIBUTES && !dev->flags.startup_attrs_sent) {
+		remaining = 0; /* Startup attributes not sent yet, process immediately */
+	} else if (prepare_config_read(dev) != 0) {
 		remaining = 1000u; /* default 1 second in case of config read error */
 	} else if (!dev->config->flags.telemetry_periodic_enabled) {
 		remaining = (uint32_t)-1; /* Periodic telemetry disabled */
@@ -1394,6 +1394,51 @@ int caniot_device_process(struct caniot_device *dev)
 			random_delay = true;
 		}
 
+#if CONFIG_CANIOT_DEVICE_STARTUP_ATTRIBUTES
+	} else if ((ret == -CANIOT_EAGAIN) && !dev->flags.startup_attrs_sent &&
+			   dev->_startup_attrs_cursor) {
+		/* if we didn't received a frame but startup attributes are pending */
+
+		uint16_t attribute = *dev->_startup_attrs_cursor;
+
+		/* Create a fake frame to read the attribute */
+		caniot_clear_frame(&req);
+		caniot_frame_set_did(&req, caniot_device_get_id(dev));
+		caniot_build_query_read_attribute(&req, attribute);
+
+		/* Handle the request.
+		 * Use deep function handle_req_attribute() instead
+		 * of caniot_device_handle_rx_frame() to avoid impacting the stats
+		 * due to the fake frame.
+		 */
+		ret = handle_req_attribute(dev, &req, &resp, false, NULL);
+		switch (ret) {
+		case -CANIOT_ECLSATTR:
+		case -CANIOT_EKEYSECTION:
+		case -CANIOT_EKEYATTR:
+		case -CANIOT_EKEYPART:
+		case -CANIOT_ENOATTR:
+		case -CANIOT_EREADATTR:
+		case -CANIOT_EROATTR:
+		case -CANIOT_EWRITEATTR:
+			/* Ignore errors related to attributes */
+			ret = 0;
+			break;
+		}
+
+		if (ret == 0) {
+			dev->_startup_attrs_cursor++;
+
+			/* If all startup attributes have been sent */
+			if (!*dev->_startup_attrs_cursor) {
+				dev->flags.startup_attrs_sent = 1u;
+			}
+		}
+
+		/* As the req frame is sent by the current device, it doesn't need to be
+		 * randomly delayed.
+		 */
+#endif /* CONFIG_CANIOT_DEVICE_STARTUP_ATTRIBUTES */
 	} else if ((ret == -CANIOT_EAGAIN) && caniot_device_triggered_telemetry_any(dev)) {
 		/* if we didn't received a frame but telemetry is requested */
 
@@ -1459,6 +1504,16 @@ void caniot_app_init(struct caniot_device *dev)
 	dev->flags.request_telemetry_ep = 0u;
 	dev->flags.config_dirty			= 1u;
 	dev->flags.initialized			= 1u;
+
+#if CONFIG_CANIOT_DEVICE_STARTUP_ATTRIBUTES
+	if (dev->startup_attrs && *dev->startup_attrs) {
+		dev->flags.startup_attrs_sent = 0u;
+		dev->_startup_attrs_cursor	  = dev->startup_attrs;
+	} else {
+		dev->flags.startup_attrs_sent = 1u;
+		dev->_startup_attrs_cursor	  = NULL;
+	}
+#endif /* CONFIG_CANIOT_DEVICE_STARTUP_ATTRIBUTES */
 }
 
 void caniot_app_deinit(struct caniot_device *dev)

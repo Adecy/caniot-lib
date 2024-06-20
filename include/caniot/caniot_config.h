@@ -40,6 +40,11 @@
 #define CONFIG_CANIOT_DEVICE_FILTER_FRAME 0
 #endif
 
+// Activate support for attributes frames being sent by the device on startup
+#ifndef CONFIG_CANIOT_DEVICE_STARTUP_ATTRIBUTES
+#define CONFIG_CANIOT_DEVICE_STARTUP_ATTRIBUTES 0
+#endif
+
 #ifndef CONFIG_CANIOT_MAX_PENDING_QUERIES
 #define CONFIG_CANIOT_MAX_PENDING_QUERIES 4U
 #endif
