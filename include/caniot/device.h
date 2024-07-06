@@ -559,6 +559,7 @@ int caniot_device_verify(struct caniot_device *dev);
 #define CANIOT_ATTR_KEY_DIAG_LAST_RUNTIME_UPTIME_TOTAL                                   \
 	CANIOT_ATTR_KEY(3, 0x07, 0)													 // 0x3070
 #define CANIOT_ATTR_KEY_DIAG_LAST_RESET_STREAK_COUNT CANIOT_ATTR_KEY(3, 0x08, 0) // 0x3080
+#define CANIOT_ATTR_KEY_DIAG_RESET_COUNT_BROWN_OUT CANIOT_ATTR_KEY(3, 0x09, 0) // 0x3090
 
 #define CANIOT_ATTR_KEY_DIAG_BOOT_SIGNAL CANIOT_ATTR_KEY(3, 0x10, 0) // 0x3100
 
