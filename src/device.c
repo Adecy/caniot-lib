@@ -576,6 +576,13 @@ void caniot_print_device_identification(const struct caniot_device *dev)
 #endif
 }
 
+uint32_t caniot_read_rom_build_commit(const struct caniot_device *dev)
+{
+	uint32_t commit = 0u;
+	arch_rom_cpy_mem(&commit, dev->identification->build_commit, sizeof(uint32_t));
+	return commit;
+}
+
 int caniot_device_system_reset(struct caniot_device *dev)
 {
 	if (!dev) return -CANIOT_EINVAL;

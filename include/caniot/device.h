@@ -241,6 +241,13 @@ struct caniot_device_api {
 void caniot_print_device_identification(const struct caniot_device *dev);
 
 /**
+ * @brief Read the first 4 bytes of the device identification
+ * 
+ * @param dev 
+ */
+uint32_t caniot_read_rom_build_commit(const struct caniot_device *dev);
+
+/**
  * @brief Mark the device configuration as dirty
  * 
  * @param dev 
