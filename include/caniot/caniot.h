@@ -17,7 +17,11 @@
 #include <caniot/caniot_config.h>
 
 #ifndef __PACKED
+#if CONFIG_CANIOT_PACK_STRUCTURES
 #define __PACKED __attribute__((packed))
+#else
+#define __PACKED
+#endif /* CONFIG_CANIOT_PACK_STRUCTURES */
 #endif
 
 #ifdef __cplusplus

@@ -1342,7 +1342,7 @@ int caniot_device_process(struct caniot_device *dev)
 
 	int ret;
 	struct caniot_frame req, resp;
-	uint32_t now_ms;
+	uint32_t now_ms = 0u;
 
 	/* Refresh configuration */
 	prepare_config_read(dev);

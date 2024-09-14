@@ -9,6 +9,12 @@ if CANIOT_LIB
 module = CANIOTLIB
 module-str = CANIOT-LIB
 
+config CANIOT_DEVICE_DRIVERS_API
+	bool "Enable Drivers API for device"
+		default n
+	help
+	        Enable Drivers API for device
+
 config CANIOT_LOG_LEVEL
 	int "Log level"
         default 3
@@ -52,4 +58,10 @@ config CHECKS_ENABLED
 	help
 	        Enable checks
 		
+config CANIOT_PACK_STRUCTURES
+	bool "Enable packed structures"
+	default n
+	help
+	        Enable packed structures
+
 endif

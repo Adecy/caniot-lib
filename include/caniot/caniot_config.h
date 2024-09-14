@@ -73,6 +73,14 @@
 #define CONFIG_CANIOT_BUILD_INFOS 1u
 #endif
 
+#ifndef CONFIG_CANIOT_PACK_STRUCTURES
+#if defined(__AVR__)
+#define CONFIG_CANIOT_PACK_STRUCTURES 1u
+#else
+#define CONFIG_CANIOT_PACK_STRUCTURES 0u
+#endif
+#endif
+
 #define CANIOT_ATTR_NAME_MAX_LEN 48u
 
 #endif /* CANIOT_CONFIG_H_ */
